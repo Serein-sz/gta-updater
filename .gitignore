@@ -1,0 +1,22 @@
+# Rust
+/target
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (may contain sensitive data)
+config/config.toml
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib

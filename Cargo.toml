@@ -1,0 +1,14 @@
+[package]
+name = "gta-updater"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "*", features = ["full"] }
+reqwest = { version = "*", features = ["json"] }
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+semver = "*"
+anyhow = "*"
+config = { version = "*", default-features = false, features = ["toml"] }
+dirs = "*"
