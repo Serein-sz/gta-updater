@@ -36,7 +36,6 @@ const ARCH: &str = "arm64";
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut conf = conf::AppConfig::load()?;
-    dbg!(&conf);
     let client = reqwest::Client::new();
 
     for app in conf.apps.iter_mut() {
