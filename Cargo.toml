@@ -5,10 +5,13 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "*", features = ["full"] }
-reqwest = { version = "*", features = ["json"] }
+futures-util = "0.3.32"
+reqwest = { version = "*", features = ["json", "stream"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 semver = "*"
 anyhow = "*"
 config = { version = "*", default-features = false, features = ["toml"] }
+toml = "*"
 dirs = "*"
+indicatif = "*"

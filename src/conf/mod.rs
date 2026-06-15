@@ -1,15 +1,15 @@
 use config::{Config, ConfigError, Environment, File};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AppConfig {
     pub github_owner: String,
     pub global_path: String,
     pub apps: Vec<App>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct App {
     pub name: String,
     pub alias: Option<String>,
@@ -26,17 +26,24 @@ impl AppConfig {
         Config::builder()
             .add_source(File::from(config_dir.as_ref().join("config.toml")))
             .add_source(
-                Environment::with_prefix("CPA")
+                Environment::with_prefix("GTA")
                     .separator("__")
                     .prefix_separator("__"),
             )
             .build()?
             .try_deserialize()
     }
+
+    pub fn rewrite(&self) -> anyhow::Result<()> {
+        let toml = toml::to_string_pretty(self)?;
+        
+        std::fs::write(config_dir().join("config.toml"), toml)?;
+        Ok(())
+    }
 }
 
 pub fn config_dir() -> PathBuf {
-    if let Some(path) = std::env::var_os("CPA_CONFIG_DIR") {
+    if let Some(path) = std::env::var_os("GTA_CONFIG_DIR") {
         return PathBuf::from(path);
     }
 
@@ -64,6 +71,7 @@ mod tests {
             global_path: "D:\\code_sorfwares\\bin".to_string(),
             apps: vec![App {
                 name: "body-recorder".to_string(),
+                alias: None,
                 version: "v0.1.0".to_string(),
                 path: None,
             }],
