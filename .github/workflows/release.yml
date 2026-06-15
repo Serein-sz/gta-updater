@@ -1,0 +1,109 @@
+name: Cross Platform Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform.os-name }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os-name: Linux-x86_64
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            output_name: gta-linux-amd64
+
+          - os-name: macOS-x86_64
+            runs-on: macos-latest
+            target: x86_64-apple-darwin
+            output_name: gta-darwin-amd64
+
+          - os-name: macOS-aarch64
+            runs-on: macos-latest
+            target: aarch64-apple-darwin
+            output_name: gta-darwin-arm64
+
+          - os-name: Windows-x86_64
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
+            output_name: gta-windows-amd64.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: build
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
+
+      - name: Prepare binary
+        shell: bash
+        run: |
+          mkdir -p bin
+          BINARY="target/${{ matrix.platform.target }}/release/gta"
+          [[ "${{ matrix.platform.target }}" == *"windows"* ]] && BINARY="${BINARY}.exe"
+          cp "$BINARY" "bin/${{ matrix.platform.output_name }}"
+
+      - name: Compress (non-Windows)
+        if: ${{ !contains(matrix.platform.target, 'windows') }}
+        shell: bash
+        run: |
+          cd bin
+          tar czf "${{ matrix.platform.output_name }}.tar.gz" "${{ matrix.platform.output_name }}"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.os-name }}
+          path: bin/${{ matrix.platform.output_name }}*
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+                
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Display structure
+        run: ls -la artifacts/
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "gta ${{ github.ref_name }}" \
+            --generate-notes \
+            artifacts/*
