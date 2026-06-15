@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
             .find(|&asset| asset.name.contains(&format!("{OS}-{ARCH}")));
         if let Some(asset) = release {
             let path = PathBuf::from(&conf.global_path);
-            download(&asset.name, &asset.browser_download_url, path.join(app.alias.as_ref().unwrap().as_str())).await?;
+            download(&asset.name, &asset.browser_download_url, path.join(app.alias.as_ref().unwrap_or(&app.name).as_str())).await?;
         }
         
     }

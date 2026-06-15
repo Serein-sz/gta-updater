@@ -3,6 +3,10 @@ name = "gta-updater"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "gta"
+path = "src/main.rs"
+
 [dependencies]
 tokio = { version = "*", features = ["full"] }
 futures-util = "0.3.32"
