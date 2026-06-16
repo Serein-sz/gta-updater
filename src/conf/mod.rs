@@ -36,7 +36,7 @@ impl AppConfig {
 
     pub fn rewrite(&self) -> anyhow::Result<()> {
         let toml = toml::to_string_pretty(self)?;
-        
+
         std::fs::write(config_dir().join("config.toml"), toml)?;
         Ok(())
     }
