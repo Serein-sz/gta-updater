@@ -1,14 +1,19 @@
-github_owner = "Serein-sz"
-global_path = "/usr/local/bin"  # or "C:\\Program Files\\bin" on Windows
+# GitHub configuration
+github_owner = "your-github-username"
 
-# Example app configuration
+# Optional: GitHub Personal Access Token for authenticated API requests
+# This increases your rate limit from 60 to 5000 requests per hour
+# Create token at: https://github.com/settings/tokens
+# Required scopes: public_repo (for public repositories)
+github_token = "ghp_your_token_here"
+
+# Global installation path for downloaded binaries
+global_path = "/usr/local/bin"  # Linux/macOS
+# global_path = "D:\\code_softwares\\bin"  # Windows example
+
+# List of applications to manage
 [[apps]]
-name = "body-recorder"
-alias = "br"
+name = "your-app-name"
+alias = "app-alias"  # Optional: alternative binary name
 version = "v0.1.0"
-# path = "/custom/path/to/install"  # Optional: override global_path
-
-# Add more apps here
-# [[apps]]
-# name = "another-app"
-# version = "v1.0.0"
+path = "/custom/path"  # Optional: override global_path for this app

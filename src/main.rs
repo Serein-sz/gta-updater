@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
         println!("\n{} {}", "Checking".bright_cyan(), app.name.bold());
 
         let release =
-            match updater::fetch_latest_release(&client, &config.github_owner, &app.name).await {
+            match updater::fetch_latest_release(&client, &config.github_owner, &app.name, config.github_token.as_deref()).await {
                 Ok(r) => r,
                 Err(e) => {
                     eprintln!("  {} Failed to fetch release: {}", "✗".red(), e);

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AppConfig {
     pub github_owner: String,
+    pub github_token: Option<String>,
     pub global_path: String,
     pub apps: Vec<App>,
 }

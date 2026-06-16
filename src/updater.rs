@@ -36,16 +36,27 @@ pub async fn fetch_latest_release(
     client: &reqwest::Client,
     owner: &str,
     repo: &str,
+    token: Option<&str>,
 ) -> Result<Release> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/releases/latest",
         owner, repo
     );
 
-    let release = client
+    let mut request = client
         .get(&url)
         .header(reqwest::header::USER_AGENT, repo)
-        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+        .header(reqwest::header::ACCEPT, "application/vnd.github+json");
+
+    // Add Authorization header if token is provided
+    if let Some(token) = token {
+        request = request.header(
+            reqwest::header::AUTHORIZATION,
+            format!("Bearer {}", token),
+        );
+    }
+
+    let release = request
         .send()
         .await
         .context(format!("Failed to fetch release info for {}", repo))?
