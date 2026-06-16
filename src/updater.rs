@@ -50,10 +50,7 @@ pub async fn fetch_latest_release(
 
     // Add Authorization header if token is provided
     if let Some(token) = token {
-        request = request.header(
-            reqwest::header::AUTHORIZATION,
-            format!("Bearer {}", token),
-        );
+        request = request.header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token));
     }
 
     let release = request
@@ -75,11 +72,18 @@ pub fn find_matching_asset(assets: &[Asset]) -> Option<&Asset> {
         .find(|asset| asset.name.contains(&format!("{}-{}", OS, ARCH)))
 }
 
-pub async fn download_file(name: &str, url: &str, path: impl AsRef<Path>) -> Result<()> {
+pub async fn download_file(
+    name: &str,
+    url: &str,
+    path: impl AsRef<Path>,
+    token: Option<&str>,
+) -> Result<()> {
     let client = reqwest::Client::new();
-
-    let response = client
-        .get(url)
+    let mut request = client.get(url);
+    if let Some(token) = token {
+        request = request.header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token));
+    }
+    let response = request
         .send()
         .await
         .context("Failed to start download")?

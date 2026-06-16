@@ -146,7 +146,7 @@ async fn main() -> Result<()> {
         );
 
         if let Err(e) =
-            updater::download_file(&asset.name, &asset.browser_download_url, &file_path).await
+            updater::download_file(&asset.name, &asset.browser_download_url, &file_path, config.github_token.as_deref()).await
         {
             eprintln!("  {} Download failed: {}", "✗".red(), e);
             continue;
