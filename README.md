@@ -61,23 +61,49 @@ path = "/custom/path"           # 可选：自定义安装路径
 
 ## 使用方法
 
+### 基本用法
+
 ```bash
 # 检查并更新所有配置的应用
-gta-updater
+gta
 
-# 使用环境变量配置
-CPA__GITHUB_OWNER=your-org CPA__GLOBAL_PATH=/path/to/bin gta-updater
+# 更新指定的应用
+gta --app body-recorder
+gta -a br  # 使用别名
+
+# 强制更新（即使已是最新版本）
+gta --force
+
+# 预览更新（不实际下载）
+gta --dry-run
+
+# 显示详细信息
+gta --verbose
+
+# 组合使用
+gta -a body-recorder -v --dry-run
 ```
+
+### 命令行参数
+
+| 参数 | 短选项 | 说明 |
+|------|--------|------|
+| `--app <NAME>` | `-a` | 只更新指定的应用（支持名称或别名） |
+| `--force` | `-f` | 强制更新，即使已是最新版本 |
+| `--dry-run` | `-n` | 预览模式，不实际下载 |
+| `--verbose` | `-v` | 显示详细输出信息 |
+| `--help` | `-h` | 显示帮助信息 |
+| `--version` | `-V` | 显示版本信息 |
 
 ### 环境变量
 
-所有配置项都可以通过环境变量覆盖，使用 `CPA__` 前缀：
+所有配置项都可以通过环境变量覆盖，使用 `GTA__` 前缀：
 
 ```bash
-CPA__GITHUB_OWNER=Serein-sz
-CPA__GLOBAL_PATH=/usr/local/bin
-CPA__APPS__0__NAME=body-recorder
-CPA__APPS__0__VERSION=v0.1.0
+GTA__GITHUB_OWNER=Serein-sz
+GTA__GLOBAL_PATH=/usr/local/bin
+GTA__APPS__0__NAME=body-recorder
+GTA__APPS__0__VERSION=v0.1.0
 ```
 
 ## 工作原理
@@ -89,20 +115,54 @@ CPA__APPS__0__VERSION=v0.1.0
 
 ## 开发
 
+### 前置要求
+
+- Rust 1.70 或更高版本
+- Cargo
+
 ### 运行测试
 
 ```bash
 cargo test
 ```
 
+### 本地开发运行
+
+```bash
+# 直接运行
+cargo run
+
+# 带参数运行
+cargo run -- --verbose --dry-run
+cargo run -- -a body-recorder
+
+# 构建 release 版本
+cargo build --release
+```
+
 ### 代码结构
 
 ```
 src/
-├── main.rs          # 主程序逻辑
+├── main.rs          # 主程序入口和更新逻辑
+├── cli.rs           # 命令行参数解析
+├── updater.rs       # 核心更新功能（下载、版本比较等）
 └── conf/
-    └── mod.rs       # 配置管理模块
+    └── mod.rs       # 配置文件管理
 ```
+
+## 优化改进
+
+最近的优化包括：
+
+- ✅ 模块化代码结构，提高可维护性
+- ✅ 完善的错误处理，避免 panic
+- ✅ 丰富的 CLI 参数支持
+- ✅ 彩色终端输出，更好的用户体验
+- ✅ 详细的日志和进度显示
+- ✅ 版本比较错误处理
+- ✅ 找不到匹配资产时的友好提示
+- ✅ 使用具体的依赖版本（非通配符）
 
 ## 依赖项
 

@@ -1,118 +1,158 @@
+mod cli;
 mod conf;
+mod updater;
 
-use std::path::{Path, PathBuf};
-use serde::Deserialize;
-use tokio::io::AsyncWriteExt;
-use indicatif::{ProgressBar, ProgressStyle};
-use futures_util::StreamExt;
-
-#[derive(Debug, Deserialize)]
-struct Release {
-    tag_name: String,
-    assets: Vec<Asset>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Asset {
-    name: String,
-    browser_download_url: String,
-}
-
-#[cfg(target_os = "linux")]
-const OS: &str = "linux";
-
-#[cfg(target_os = "windows")]
-const OS: &str = "windows";
-
-#[cfg(target_os = "macos")]
-const OS: &str = "darwin";
-
-#[cfg(target_arch = "x86_64")]
-const ARCH: &str = "amd64";
-
-#[cfg(target_arch = "aarch64")]
-const ARCH: &str = "arm64";
+use anyhow::{Context, Result};
+use clap::Parser;
+use cli::Cli;
+use colored::Colorize;
+use std::path::PathBuf;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let mut conf = conf::AppConfig::load()?;
+async fn main() -> Result<()> {
+    let args = Cli::parse();
+
+    let mut config = conf::AppConfig::load()
+        .context("Failed to load configuration. Please ensure config.toml exists.")?;
+
+    if args.verbose {
+        println!("{}", "Configuration loaded:".bright_blue());
+        println!("  Owner: {}", config.github_owner);
+        println!("  Global path: {}", config.global_path);
+        println!("  Apps: {}", config.apps.len());
+    }
+
     let client = reqwest::Client::new();
+    let mut updated_count = 0;
 
-    for app in conf.apps.iter_mut() {
-        let release: Release = client
-            .get(format!(
-                "https://api.github.com/repos/{}/{}/releases/latest",
-                conf.github_owner, &app.name
-            ))
-            .header(reqwest::header::USER_AGENT, &app.name)
-            .header(reqwest::header::ACCEPT, "application/vnd.github+json")
-            .send()
-            .await?
-            .json()
-            .await?;
+    for app in config.apps.iter_mut() {
+        // Skip if specific app requested and this isn't it
+        if let Some(ref target_app) = args.app {
+            if app.name != *target_app && app.alias.as_ref() != Some(target_app) {
+                continue;
+            }
+        }
 
-        if semver::Version::parse(release.tag_name.trim_start_matches("v")).unwrap() <= semver::Version::parse(app.version.trim_start_matches("v")).unwrap() {
+        println!("\n{} {}", "Checking".bright_cyan(), app.name.bold());
+
+        let release = match updater::fetch_latest_release(&client, &config.github_owner, &app.name).await {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("  {} Failed to fetch release: {}", "✗".red(), e);
+                continue;
+            }
+        };
+
+        if args.verbose {
+            println!("  Current version: {}", app.version);
+            println!("  Latest version: {}", release.tag_name);
+        }
+
+        // Compare versions
+        let needs_update = match updater::compare_versions(&app.version, &release.tag_name) {
+            Ok(std::cmp::Ordering::Less) => true,
+            Ok(std::cmp::Ordering::Equal) => {
+                if args.force {
+                    println!("  {} Already on latest version, but forcing update", "→".yellow());
+                    true
+                } else {
+                    println!("  {} Already on latest version ({})", "✓".green(), app.version);
+                    false
+                }
+            }
+            Ok(std::cmp::Ordering::Greater) => {
+                println!("  {} Current version is newer than latest release", "→".yellow());
+                false
+            }
+            Err(e) => {
+                eprintln!("  {} Failed to compare versions: {}", "✗".red(), e);
+                continue;
+            }
+        };
+
+        if !needs_update {
             continue;
         }
-        app.version = release.tag_name;
-        let release = release
-            .assets
-            .iter()
-            .find(|&asset| asset.name.contains(&format!("{OS}-{ARCH}")));
-        if let Some(asset) = release {
-            let path = PathBuf::from(&conf.global_path);
-            download(&asset.name, &asset.browser_download_url, path.join(app.alias.as_ref().unwrap_or(&app.name).as_str())).await?;
+
+        // Find matching asset
+        let asset = match updater::find_matching_asset(&release.assets) {
+            Some(a) => a,
+            None => {
+                eprintln!(
+                    "  {} No matching asset found for {}-{}",
+                    "✗".red(),
+                    updater::OS,
+                    updater::ARCH
+                );
+                if args.verbose {
+                    println!("  Available assets:");
+                    for asset in &release.assets {
+                        println!("    - {}", asset.name);
+                    }
+                }
+                continue;
+            }
+        };
+
+        if args.dry_run {
+            println!(
+                "  {} Would update {} → {}",
+                "→".yellow(),
+                app.version,
+                release.tag_name
+            );
+            println!("    Asset: {}", asset.name);
+            continue;
         }
-        
+
+        // Determine download path
+        let install_path = if let Some(ref custom_path) = app.path {
+            PathBuf::from(custom_path)
+        } else {
+            PathBuf::from(&config.global_path)
+        };
+
+        let binary_name = app.alias.as_ref().unwrap_or(&app.name);
+
+        #[cfg(windows)]
+        let binary_name = format!("{}.exe", binary_name);
+
+        let file_path = install_path.join(&binary_name);
+
+        // Ensure install directory exists
+        if let Some(parent) = file_path.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .context(format!("Failed to create directory {:?}", parent))?;
+        }
+
+        // Download
+        println!("  {} Updating {} → {}", "↓".bright_green(), app.version, release.tag_name);
+
+        if let Err(e) = updater::download_file(&asset.name, &asset.browser_download_url, &file_path).await {
+            eprintln!("  {} Download failed: {}", "✗".red(), e);
+            continue;
+        }
+
+        // Update version in config
+        app.version = release.tag_name.clone();
+        updated_count += 1;
+
+        println!("  {} Installed to {:?}", "✓".green(), file_path);
     }
 
-    conf.rewrite()?;
-    
-    Ok(())
-}
-
-async fn download(name: &str, url: &str, path: impl AsRef<Path>) -> anyhow::Result<()> {
-    let client = reqwest::Client::new();
-
-    let response = client.get(url).send().await?;
-
-    let total_size = response.content_length().unwrap_or(0);
-
-    let pb = ProgressBar::new(total_size);
-
-    pb.set_message(format!("{} downloding", name));
-    pb.set_style(
-        ProgressStyle::with_template(
-            "{spinner:.green} {msg} [{bar:40.cyan/blue}] \
-             {bytes}/{total_bytes} ({eta})",
-        )?
-    );
-
-    let mut file = tokio::fs::File::create(&path).await?;
-
-    let mut stream = response.bytes_stream();
-
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-
-        file.write_all(&chunk).await?;
-
-        pb.inc(chunk.len() as u64);
-    }
-
-    pb.finish_with_message(format!("{} finished", name));
-    make_executable(path.as_ref())?;
-    Ok(())
-}
-
-pub fn make_executable(path: &Path) -> anyhow::Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-
-        let mut perms = std::fs::metadata(path)?.permissions();
-        perms.set_mode(0o755);
-        std::fs::set_permissions(path, perms)?;
+    // Save updated config
+    if updated_count > 0 && !args.dry_run {
+        config.rewrite().context("Failed to save updated configuration")?;
+        println!(
+            "\n{} Updated {} app(s)",
+            "✓".green().bold(),
+            updated_count.to_string().bold()
+        );
+    } else if args.dry_run {
+        println!("\n{} Dry run complete (no changes made)", "→".yellow());
+    } else {
+        println!("\n{} All apps are up to date", "✓".green().bold());
     }
 
     Ok(())

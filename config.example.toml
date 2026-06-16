@@ -1,0 +1,14 @@
+github_owner = "Serein-sz"
+global_path = "/usr/local/bin"  # or "C:\\Program Files\\bin" on Windows
+
+# Example app configuration
+[[apps]]
+name = "body-recorder"
+alias = "br"
+version = "v0.1.0"
+# path = "/custom/path/to/install"  # Optional: override global_path
+
+# Add more apps here
+# [[apps]]
+# name = "another-app"
+# version = "v1.0.0"
