@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::Deserialize;
@@ -58,7 +58,7 @@ pub async fn fetch_latest_release(
     Ok(release)
 }
 
-pub fn find_matching_asset<'a>(assets: &'a [Asset]) -> Option<&'a Asset> {
+pub fn find_matching_asset(assets: &[Asset]) -> Option<&Asset> {
     assets
         .iter()
         .find(|asset| asset.name.contains(&format!("{}-{}", OS, ARCH)))
