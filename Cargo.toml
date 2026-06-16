@@ -1,6 +1,6 @@
 [package]
 name = "gta-updater"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Serein-sz"]
 description = "A command-line tool to automatically update GitHub Release assets"
